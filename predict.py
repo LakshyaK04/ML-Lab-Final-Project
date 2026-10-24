@@ -5,9 +5,14 @@ Gracefully handles missing model files by training from CSV if needed.
 """
 
 import os
+import sys
 import joblib
 import pandas as pd
 from feature_engineering import FinancialFeatureEngineer, train_model
+
+# Ensure UTF-8 output on Windows terminals
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 MODEL_PATH = os.path.join(os.path.dirname(__file__), "loan_approval_model.pkl")
 CSV_PATH = os.path.join(os.path.dirname(__file__), "loan_prediction.csv")
@@ -86,7 +91,7 @@ def predict_loan_status(
 
 def run_interactive_cli():
     print("=" * 65)
-    print("      🏦 LOAN APPROVAL PREDICTOR (CLI DEMO) 🏦")
+    print("      [LOAN APPROVAL PREDICTOR - CLI DEMO]")
     print("   Random Forest Classifier with Banking Feature Engineering")
     print("=" * 65)
     print("Select an option:")
