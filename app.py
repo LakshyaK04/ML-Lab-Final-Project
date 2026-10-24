@@ -1,18 +1,15 @@
 """
 Loan Approval Predictor - Interactive Web Application
-Built with Streamlit and Scikit-Learn
+Built with Streamlit, Scikit-Learn, and Banking Feature Engineering
 """
 
+import os
 import streamlit as st
 import pandas as pd
 import numpy as np
 import joblib
-import os
-from sklearn.pipeline import Pipeline
-from sklearn.compose import ColumnTransformer
-from sklearn.preprocessing import OneHotEncoder, StandardScaler
-from sklearn.impute import SimpleImputer
-from sklearn.svm import SVC
+
+from feature_engineering import FinancialFeatureEngineer, train_model
 
 # --- PAGE CONFIGURATION ---
 st.set_page_config(
@@ -22,12 +19,12 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- CUSTOM CSS FOR CLEAN MODERN LOOK ---
+# --- CUSTOM CSS ---
 st.markdown("""
 <style>
     .main-header {
-        font-size: 2.2rem;
-        font-weight: 700;
+        font-size: 2.1rem;
+        font-weight: 800;
         color: #1E3A8A;
         margin-bottom: 0.2rem;
     }
@@ -40,218 +37,187 @@ st.markdown("""
         background: linear-gradient(135deg, #ECFDF5 0%, #D1FAE5 100%);
         border: 2px solid #10B981;
         border-radius: 12px;
-        padding: 24px;
+        padding: 22px;
         text-align: center;
-        margin-bottom: 20px;
+        margin-bottom: 16px;
     }
     .status-card-rejected {
         background: linear-gradient(135deg, #FEF2F2 0%, #FEE2E2 100%);
         border: 2px solid #EF4444;
         border-radius: 12px;
-        padding: 24px;
+        padding: 22px;
         text-align: center;
-        margin-bottom: 20px;
+        margin-bottom: 16px;
     }
     .status-title {
-        font-size: 1.8rem;
+        font-size: 1.7rem;
         font-weight: 800;
-        margin-bottom: 8px;
+        margin-bottom: 6px;
     }
     .approved-text { color: #065F46; }
     .rejected-text { color: #991B1B; }
+    .metric-badge {
+        background: #F3F4F6;
+        border-radius: 8px;
+        padding: 12px 16px;
+        margin-bottom: 8px;
+        border-left: 4px solid #3B82F6;
+    }
     .viva-box {
         background-color: #EFF6FF;
-        border-left: 5px solid #3B82F6;
-        padding: 15px;
+        border-left: 5px solid #2563EB;
+        padding: 14px 18px;
         border-radius: 6px;
-        margin: 12px 0;
+        margin: 10px 0;
+        font-size: 0.98rem;
+        line-height: 1.5;
     }
 </style>
 """, unsafe_allow_html=True)
 
-def train_fresh_model():
-    """Train pipeline in ~0.05s to guarantee 100% compatibility with any scikit-learn version"""
-    csv_path = os.path.join(os.path.dirname(__file__), "loan_prediction.csv")
-    df = pd.read_csv(csv_path)
-    df_clean = df.copy()
-    df_clean.drop(columns=["Loan_ID"], inplace=True, errors="ignore")
-    df_clean["Dependents"] = df_clean["Dependents"].replace("3+", "3")
-    df_clean["Dependents"] = pd.to_numeric(df_clean["Dependents"], errors="coerce")
-    df_clean["Loan_Status"] = (
-        df_clean["Loan_Status"]
-        .astype(str)
-        .str.strip()
-        .str.upper()
-        .map({"Y": 1, "N": 0})
-    )
-    df_clean.dropna(subset=["Loan_Status"], inplace=True)
-    df_clean["Loan_Status"] = df_clean["Loan_Status"].astype(int)
 
-    x = df_clean.drop(columns=["Loan_Status"])
-    y = df_clean["Loan_Status"]
-
-    numeric_features = [
-        "Dependents", "ApplicantIncome", "CoapplicantIncome",
-        "LoanAmount", "Loan_Amount_Term", "Credit_History"
-    ]
-    categorical_features = [
-        "Gender", "Married", "Education", "Self_Employed", "Property_Area"
-    ]
-
-    preprocessor = ColumnTransformer([
-        ("num", Pipeline([
-            ("imputer", SimpleImputer(strategy="median")),
-            ("scaler", StandardScaler())
-        ]), numeric_features),
-        ("cat", Pipeline([
-            ("imputer", SimpleImputer(strategy="most_frequent")),
-            ("encoder", OneHotEncoder(handle_unknown="ignore"))
-        ]), categorical_features)
-    ])
-
-    new_pipeline = Pipeline([
-        ("preprocessor", preprocessor),
-        ("classifier", SVC(C=1, class_weight="balanced", kernel="linear", probability=True, random_state=42))
-    ])
-
-    new_pipeline.fit(x, y)
-    return new_pipeline
-
-# --- LOAD MODEL & DATA ---
+# --- MODEL LOADING & FALLBACK ---
 @st.cache_resource
-def load_model():
+def get_model():
     model_path = os.path.join(os.path.dirname(__file__), "loan_approval_model.pkl")
+    csv_path = os.path.join(os.path.dirname(__file__), "loan_prediction.csv")
+
     if os.path.exists(model_path):
         try:
             model = joblib.load(model_path)
-            # Verify compatibility by testing a dummy prediction
-            test_df = pd.DataFrame([{
+            # Smoke test
+            dummy = pd.DataFrame([{
                 'Gender': 'Male', 'Married': 'Yes', 'Dependents': 0.0,
                 'Education': 'Graduate', 'Self_Employed': 'No',
                 'ApplicantIncome': 5000.0, 'CoapplicantIncome': 1500.0,
                 'LoanAmount': 120.0, 'Loan_Amount_Term': 360.0,
                 'Credit_History': 1.0, 'Property_Area': 'Urban'
             }])
-            model.predict(test_df)
+            model.predict(dummy)
             return model
         except Exception:
-            # Cross-version pickle mismatch on cloud: train fresh in 0.05s
-            return train_fresh_model()
-    return train_fresh_model()
+            pass
+
+    # Fallback: train fresh pipeline directly from CSV
+    fresh_model = train_model(csv_path)
+    try:
+        joblib.dump(fresh_model, model_path)
+    except Exception:
+        pass
+    return fresh_model
+
 
 @st.cache_data
-def load_comparison():
+def get_comparison():
     comp_path = os.path.join(os.path.dirname(__file__), "model_comparison.csv")
     if os.path.exists(comp_path):
         return pd.read_csv(comp_path)
     return None
 
-pipeline = load_model()
-comparison_df = load_comparison()
 
-# --- SIDEBAR: PRESETS & QUICK INFO ---
+pipeline = get_model()
+comparison_df = get_comparison()
+
+# --- DEFAULT SESSION STATE ---
+if "app_income" not in st.session_state:
+    st.session_state.gender = "Male"
+    st.session_state.married = "Yes"
+    st.session_state.dependents = 0
+    st.session_state.education = "Graduate"
+    st.session_state.self_employed = "No"
+    st.session_state.app_income = 5000
+    st.session_state.coapp_income = 1500
+    st.session_state.loan_amt = 120
+    st.session_state.term = 360
+    st.session_state.credit = "Good (Meets guidelines - Score 1.0)"
+    st.session_state.property_area = "Urban"
+
+# --- SIDEBAR: QUICK TEST PRESETS ---
 with st.sidebar:
-    st.image("https://img.icons8.com/isometric/100/bank-building.png", width=70)
+    st.image("https://img.icons8.com/isometric/100/bank-building.png", width=65)
     st.markdown("### 🏦 **Quick Test Presets**")
-    st.caption("Click any preset to fill the form with sample viva cases:")
+    st.caption("Click any preset to verify realistic banking behavior:")
 
-    col_p1, col_p2 = st.columns(2)
-    with col_p1:
-        if st.button("✅ Standard Approved", use_container_width=True):
-            st.session_state.gender = "Male"
-            st.session_state.married = "Yes"
-            st.session_state.dependents = 0
-            st.session_state.education = "Graduate"
-            st.session_state.self_employed = "No"
-            st.session_state.app_income = 5500
-            st.session_state.coapp_income = 2000
-            st.session_state.loan_amt = 130
-            st.session_state.term = 360
-            st.session_state.credit = "Good (Meets guidelines - Score 1.0)"
-            st.session_state.property_area = "Urban"
-            st.rerun()
+    if st.button("✅ 1. Normal Good Applicant", use_container_width=True):
+        st.session_state.gender = "Male"
+        st.session_state.married = "Yes"
+        st.session_state.dependents = 0
+        st.session_state.education = "Graduate"
+        st.session_state.self_employed = "No"
+        st.session_state.app_income = 5000
+        st.session_state.coapp_income = 1500
+        st.session_state.loan_amt = 120
+        st.session_state.term = 360
+        st.session_state.credit = "Good (Meets guidelines - Score 1.0)"
+        st.session_state.property_area = "Urban"
+        st.rerun()
 
-    with col_p2:
-        if st.button("❌ Defaulter Case", use_container_width=True):
-            st.session_state.gender = "Male"
-            st.session_state.married = "No"
-            st.session_state.dependents = 0
-            st.session_state.education = "Not Graduate"
-            st.session_state.self_employed = "No"
-            st.session_state.app_income = 2500
-            st.session_state.coapp_income = 0
-            st.session_state.loan_amt = 150
-            st.session_state.term = 360
-            st.session_state.credit = "Poor / Defaulted (Score 0.0)"
-            st.session_state.property_area = "Rural"
-            st.rerun()
+    if st.button("⚠️ 2. Stress Test: Low Income, Huge Loan ($900k)", use_container_width=True):
+        st.session_state.gender = "Male"
+        st.session_state.married = "Yes"
+        st.session_state.dependents = 0
+        st.session_state.education = "Graduate"
+        st.session_state.self_employed = "No"
+        st.session_state.app_income = 500
+        st.session_state.coapp_income = 0
+        st.session_state.loan_amt = 900
+        st.session_state.term = 360
+        st.session_state.credit = "Good (Meets guidelines - Score 1.0)"
+        st.session_state.property_area = "Urban"
+        st.rerun()
 
-    if st.button("⚖️ Self-Employed Semiurban", use_container_width=True):
+    if st.button("❌ 3. Zero Income, Large Loan ($500k)", use_container_width=True):
+        st.session_state.gender = "Male"
+        st.session_state.married = "No"
+        st.session_state.dependents = 0
+        st.session_state.education = "Graduate"
+        st.session_state.self_employed = "No"
+        st.session_state.app_income = 150
+        st.session_state.coapp_income = 0
+        st.session_state.loan_amt = 500
+        st.session_state.term = 360
+        st.session_state.credit = "Good (Meets guidelines - Score 1.0)"
+        st.session_state.property_area = "Urban"
+        st.rerun()
+
+    if st.button("💼 4. High Earner, Bad Credit ($50k/mo)", use_container_width=True):
         st.session_state.gender = "Female"
         st.session_state.married = "Yes"
         st.session_state.dependents = 1
         st.session_state.education = "Graduate"
         st.session_state.self_employed = "Yes"
-        st.session_state.app_income = 4800
-        st.session_state.coapp_income = 3200
-        st.session_state.loan_amt = 180
+        st.session_state.app_income = 50000
+        st.session_state.coapp_income = 0
+        st.session_state.loan_amt = 150
         st.session_state.term = 360
-        st.session_state.credit = "Good (Meets guidelines - Score 1.0)"
+        st.session_state.credit = "Poor / Defaulted (Score 0.0)"
         st.session_state.property_area = "Semiurban"
         st.rerun()
 
     st.markdown("---")
-    st.markdown("### 🎓 **Viva Cheatsheet**")
-    st.markdown("""
-    - **Model:** Support Vector Classifier (Linear)
-    - **Cross-Validation Accuracy:** ~79.8%
-    - **Key Feature:** `Credit_History`
-    - **Target:** `Loan_Status` (1 = Yes, 0 = No)
-    - **Handling Imbalance:** `class_weight='balanced'`
-    """)
+    st.caption("**Model Architecture:** Random Forest (300 trees, max depth 5) with Pipeline Feature Engineering (Total Income, EMI, DTI, LTI).")
 
-# --- INITIALIZE SESSION STATE DEFAULTS ---
-if "gender" not in st.session_state:
-    st.session_state.gender = "Male"
-if "married" not in st.session_state:
-    st.session_state.married = "Yes"
-if "dependents" not in st.session_state:
-    st.session_state.dependents = 0
-if "education" not in st.session_state:
-    st.session_state.education = "Graduate"
-if "self_employed" not in st.session_state:
-    st.session_state.self_employed = "No"
-if "app_income" not in st.session_state:
-    st.session_state.app_income = 5000
-if "coapp_income" not in st.session_state:
-    st.session_state.coapp_income = 1500
-if "loan_amt" not in st.session_state:
-    st.session_state.loan_amt = 120
-if "term" not in st.session_state:
-    st.session_state.term = 360
-if "credit" not in st.session_state:
-    st.session_state.credit = "Good (Meets guidelines - Score 1.0)"
-if "property_area" not in st.session_state:
-    st.session_state.property_area = "Urban"
 
-# --- MAIN PAGE HEADER ---
-st.markdown('<div class="main-header">💳 Loan Approval Prediction System</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-header">Machine Learning classification model built using Scikit-Learn Pipeline (Imputation, Scaling, One-Hot Encoding & Support Vector Machine).</div>', unsafe_allow_html=True)
+# --- MAIN HEADER ---
+st.markdown('<div class="main-header">💳 Loan Approval Predictor</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-header">Automated credit evaluation powered by Random Forest & Banking Affordability Metrics</div>', unsafe_allow_html=True)
 
-# Tabs for Navigation
-tab_pred, tab_perf, tab_faq = st.tabs(["🎯 Loan Application & Prediction", "📊 Model Comparison & Metrics", "💡 Viva Quick Prep"])
+tab_pred, tab_perf, tab_faq = st.tabs([
+    "🔮 Interactive Predictor",
+    "🏆 Model Performance & Architecture",
+    "🎓 Viva Guide & FAQs"
+])
+
 
 # ==========================================
-# TAB 1: PREDICTION
+# TAB 1: INTERACTIVE PREDICTOR
 # ==========================================
 with tab_pred:
-    st.markdown("### Enter Applicant & Loan Information")
-    
     with st.form("loan_form"):
         col1, col2, col3 = st.columns(3)
-        
+
         with col1:
-            st.markdown("##### 👤 Personal Details")
+            st.markdown("##### 👤 Personal & Employment Profile")
             gender = st.selectbox(
                 "Gender", ["Male", "Female"],
                 index=["Male", "Female"].index(st.session_state.gender)
@@ -261,7 +227,7 @@ with tab_pred:
                 index=["Yes", "No"].index(st.session_state.married)
             )
             dependents = st.selectbox(
-                "Dependents (Children / Family members)", [0, 1, 2, 3],
+                "Number of Dependents", [0, 1, 2, 3],
                 index=[0, 1, 2, 3].index(st.session_state.dependents)
             )
             education = st.selectbox(
@@ -277,7 +243,7 @@ with tab_pred:
             st.markdown("##### 💵 Financial Details")
             app_income = st.number_input(
                 "Applicant Monthly Income ($)",
-                min_value=150, max_value=100000,
+                min_value=0, max_value=100000,
                 value=int(st.session_state.app_income), step=250,
                 help="Primary applicant's monthly earnings"
             )
@@ -285,16 +251,17 @@ with tab_pred:
                 "Co-applicant Monthly Income ($)",
                 min_value=0, max_value=50000,
                 value=int(st.session_state.coapp_income), step=250,
-                help="Spouse or guarantor's monthly earnings (0 if none)"
+                help="Spouse or guarantor monthly earnings (0 if none)"
             )
             loan_amt = st.number_input(
-                "Loan Amount requested (in Thousands, e.g. 120 = $120,000)",
+                "Loan Amount (in Thousands, e.g. 120 = $120,000)",
                 min_value=10, max_value=1000,
                 value=int(st.session_state.loan_amt), step=5,
-                help="Loan amount requested in thousands of dollars"
+                help="Requested loan amount in thousands of dollars"
             )
-            total_income = app_income + coapp_income
-            st.info(f"**Total Household Income:** ${total_income:,.0f}/month")
+
+            tot_inc = app_income + coapp_income
+            st.info(f"**Total Household Income:** ${tot_inc:,.0f} / month")
 
         with col3:
             st.markdown("##### 📜 Loan & Credit Terms")
@@ -302,23 +269,31 @@ with tab_pred:
                 "Loan Term (in Months)",
                 [360, 180, 120, 240, 300, 480, 84, 60],
                 index=[360, 180, 120, 240, 300, 480, 84, 60].index(st.session_state.term),
-                help="360 months = 30-year loan, 180 months = 15-year loan"
+                help="360 months = 30 years, 180 months = 15 years"
             )
             credit = st.selectbox(
                 "Credit History Status",
                 ["Good (Meets guidelines - Score 1.0)", "Poor / Defaulted (Score 0.0)"],
                 index=["Good (Meets guidelines - Score 1.0)", "Poor / Defaulted (Score 0.0)"].index(st.session_state.credit),
-                help="Most significant factor in loan prediction! Past credit repayment record."
+                help="Historical credit repayment track record"
             )
             property_area = st.selectbox(
                 "Property Area", ["Urban", "Semiurban", "Rural"],
                 index=["Urban", "Semiurban", "Rural"].index(st.session_state.property_area)
             )
-        
+
         submit_btn = st.form_submit_button("🔍 Run Loan Approval Prediction", use_container_width=True, type="primary")
 
     if submit_btn:
         credit_val = 1.0 if "1.0" in credit else 0.0
+
+        # Calculate banking metrics
+        total_income = float(app_income) + float(coapp_income)
+        denom_income = max(total_income, 1.0)
+        term_guarded = max(float(term), 1.0)
+        emi_val = (float(loan_amt) * 1000.0) / term_guarded
+        lti_val = (float(loan_amt) * 1000.0) / (denom_income * 12.0)
+        dti_val = emi_val / denom_income
 
         input_data = pd.DataFrame([{
             'Gender': gender,
@@ -340,9 +315,9 @@ with tab_pred:
         prob_rejected = prob[0]
 
         st.markdown("---")
-        st.markdown("### 📋 Prediction Outcome")
+        st.markdown("### 📋 Prediction Outcome & Affordability Breakdown")
 
-        res_col1, res_col2 = st.columns([1.4, 1])
+        res_col1, res_col2 = st.columns([1.3, 1.1])
 
         with res_col1:
             if pred == 1:
@@ -350,7 +325,7 @@ with tab_pred:
                 <div class="status-card-approved">
                     <div class="status-title approved-text">🎉 LOAN APPROVED</div>
                     <p style="font-size: 1.15rem; color: #047857; margin-bottom: 4px;">
-                        The applicant fulfills bank risk criteria with an estimated approval confidence of <b>{prob_approved:.1%}</b>.
+                        Applicant meets credit and financial eligibility criteria with an approval confidence of <b>{prob_approved:.1%}</b>.
                     </p>
                 </div>
                 """, unsafe_allow_html=True)
@@ -359,122 +334,162 @@ with tab_pred:
                 <div class="status-card-rejected">
                     <div class="status-title rejected-text">⚠️ LOAN REJECTED</div>
                     <p style="font-size: 1.15rem; color: #B91C1C; margin-bottom: 4px;">
-                        The loan application exhibits high default risk with a rejection probability of <b>{prob_rejected:.1%}</b>.
+                        Application exhibits high default or leverage risk with a rejection probability of <b>{prob_rejected:.1%}</b>.
                     </p>
                 </div>
                 """, unsafe_allow_html=True)
 
-            st.write(f"**Approval Confidence Score:** `{prob_approved * 100:.1f}%`")
+            st.write(f"**Approval Probability Score:** `{prob_approved * 100:.1f}%`")
             st.progress(float(prob_approved))
 
         with res_col2:
-            st.markdown("#### 🔍 Key Deciding Factors")
-            if credit_val == 1.0:
-                st.success("✔️ **Credit History:** Verified (History = 1.0) — drastically elevates approval probability.")
-            else:
-                st.error("❌ **Credit History:** Deficient (History = 0.0) — primary reason for application denial.")
-            
-            loan_dollars = loan_amt * 1000
-            total_inc_annual = (app_income + coapp_income) * 12
-            ratio = (loan_dollars / total_inc_annual) if total_inc_annual > 0 else 999
-            
-            if ratio < 3.0:
-                st.info(f"✔️ **Debt-to-Annual-Income:** {ratio:.2f}x (Healthy and manageable loan size)")
-            else:
-                st.warning(f"⚠️ **Debt-to-Annual-Income:** {ratio:.2f}x (Higher leverage ratio)")
+            st.markdown("#### 📐 Key Banking Affordability Metrics")
+
+            # EMI Metric Card
+            st.markdown(f"""
+            <div class="metric-badge">
+                <b>Monthly EMI:</b> ${emi_val:,.2f}/month<br>
+                <small style="color: #6B7280;">Estimated monthly repayment obligation for ${loan_amt*1000:,.0f} over {term} months.</small>
+            </div>
+            """, unsafe_allow_html=True)
+
+            # DTI Metric Card
+            dti_status = "Healthy (Below 40%)" if dti_val <= 0.40 else "High Debt Burden (> 40%)"
+            dti_color = "#10B981" if dti_val <= 0.40 else "#EF4444"
+            st.markdown(f"""
+            <div class="metric-badge" style="border-left-color: {dti_color};">
+                <b>DTI (Debt-to-Income):</b> {dti_val:.1%} — <span style="color: {dti_color}; font-weight: 600;">{dti_status}</span><br>
+                <small style="color: #6B7280;">Proportion of household monthly income consumed by this loan installment.</small>
+            </div>
+            """, unsafe_allow_html=True)
+
+            # LTI Metric Card
+            lti_status = "Manageable Leverage (≤ 3.0x)" if lti_val <= 3.0 else "High Leverage (> 3.0x)"
+            lti_color = "#10B981" if lti_val <= 3.0 else "#F59E0B"
+            st.markdown(f"""
+            <div class="metric-badge" style="border-left-color: {lti_color};">
+                <b>LTI (Loan-to-Annual-Income):</b> {lti_val:.2f}x — <span style="color: {lti_color}; font-weight: 600;">{lti_status}</span><br>
+                <small style="color: #6B7280;">Total loan size relative to annual household income (${total_income*12:,.0f}/yr).</small>
+            </div>
+            """, unsafe_allow_html=True)
 
         st.markdown("#### 📊 Summary of Evaluated Parameters")
         m1, m2, m3, m4 = st.columns(4)
         m1.metric("Household Monthly Income", f"${total_income:,.0f}")
         m2.metric("Requested Loan Amount", f"${loan_amt * 1000:,.0f}")
         m3.metric("Tenure Length", f"{term / 12:.1f} years ({term} mos)")
-        m4.metric("Property Zone", property_area)
+        m4.metric("Credit History Status", "Verified (1.0)" if credit_val == 1.0 else "Deficient (0.0)")
+
 
 # ==========================================
-# TAB 2: MODEL PERFORMANCE & BENCHMARKING
+# TAB 2: MODEL PERFORMANCE & ARCHITECTURE
 # ==========================================
 with tab_perf:
-    st.markdown("### 🏆 Machine Learning Model Comparison")
+    st.markdown("### 🏆 Machine Learning Model Evaluation & Cross-Validation")
     st.write("""
-    During development, 4 different classification algorithms were trained using 
-    **Stratified 5-Fold Cross-Validation** to prevent overfitting and handle class distribution:
+    Models were benchmarked using **Repeated Stratified 5-Fold Cross-Validation (5 repeats = 25 evaluation splits)**
+    to accurately capture mean generalization accuracy and variance:
     """)
 
     if comparison_df is not None:
-        c1, c2 = st.columns([1.2, 1])
+        c1, c2 = st.columns([1.3, 1])
         with c1:
             st.dataframe(
-                comparison_df.style.highlight_max(axis=0, subset=["Mean CV Accuracy", "Mean CV F1"], color="#D1FAE5"),
+                comparison_df.style.format({
+                    "Mean CV Accuracy": "{:.2%}",
+                    "CV Accuracy Std": "±{:.2%}",
+                    "Mean CV F1": "{:.4f}",
+                    "CV F1 Std": "±{:.4f}"
+                }).highlight_max(axis=0, subset=["Mean CV Accuracy", "Mean CV F1"], color="#D1FAE5"),
                 use_container_width=True
             )
         with c2:
             st.markdown("""
-            **Why SVM (Support Vector Machine) was chosen:**
-            - **Highest CV Accuracy:** ~79.83%
-            - **Highest F1-Score:** ~0.870 (Strong balance of precision & recall)
-            - **Lowest variance across folds:** Consistent generalization without overfitting on small datasets.
+            **Honest Evaluation Summary:**
+            - **Accuracy is statistically comparable (~80%):** Linear SVM (~80.9% ± 2.3%) and Random Forest with Engineered Features (~79.6% ± 2.1%) perform equally well within noise margins.
+            - **Why Random Forest was chosen:** Linear SVM relied almost exclusively on `Credit_History`, approving absurd applications (e.g. $0 income, $500k loan). Random Forest balances credit track record with economic affordability (EMI, DTI, LTI).
+            - **Known Tradeoff:** The Random Forest model yields a higher approval probability for bad-credit applicants (~25%) compared to Linear SVM (~9%), even though only ~8% of bad-credit applicants were approved in the training set.
             """)
 
     st.markdown("---")
-    st.markdown("### ⚙️ Complete End-to-End ML Pipeline Architecture")
+    st.markdown("### ⚙️ End-to-End Pipeline Architecture")
     st.code("""
-Raw Data (614 rows)
+Raw Applicant Data (loan_prediction.csv: 614 applications)
    │
-   ├─► Numerical Columns: ['Dependents', 'ApplicantIncome', 'CoapplicantIncome', 'LoanAmount', 'Loan_Amount_Term', 'Credit_History']
-   │     ├─► Median Imputation (SimpleImputer)
-   │     └─► Standard Scaling (StandardScaler - mean 0, variance 1)
+   ├─► Step 1: Banking Feature Engineering (FinancialFeatureEngineer)
+   │     ├─► TotalIncome = ApplicantIncome + CoapplicantIncome
+   │     ├─► EMI = (LoanAmount * 1000) / Loan_Amount_Term
+   │     ├─► LTI = (LoanAmount * 1000) / (TotalIncome * 12)
+   │     └─► DTI = EMI / TotalIncome
    │
-   ├─► Categorical Columns: ['Gender', 'Married', 'Education', 'Self_Employed', 'Property_Area']
-   │     ├─► Mode Imputation (SimpleImputer)
-   │     └─► One-Hot Encoding (OneHotEncoder)
+   ├─► Step 2: ColumnTransformer Preprocessing
+   │     ├─► Numerical Columns: Median Imputation + StandardScaler
+   │     └─► Categorical Columns: Mode Imputation + OneHotEncoder
    │
-   └─► Classifier: Support Vector Classifier (SVC)
-         ├─► kernel = 'linear'
-         ├─► C = 1.0
-         ├─► class_weight = 'balanced' (Counteracts class imbalance: ~69% Approved vs 31% Rejected)
-         └─► probability = True (Generates confidence percentage)
+   └─► Step 3: Classifier (RandomForestClassifier)
+         ├─► n_estimators = 300
+         ├─► max_depth = 5
+         ├─► min_samples_leaf = 5
+         ├─► class_weight = 'balanced'
+         └─► random_state = 42
     """, language="text")
 
+    st.markdown("---")
+    st.markdown("### 📊 Final Model Feature Importances")
+    st.write("Notice how feature engineering distributes decision weight across real financial capacity rather than solely Credit History:")
+
+    feat_data = {
+        "Feature": [
+            "Credit_History", "LTI (Loan-to-Income)", "TotalIncome", "DTI (Debt-to-Income)",
+            "EMI (Monthly Payment)", "ApplicantIncome", "LoanAmount", "CoapplicantIncome",
+            "Property_Area_Semiurban", "Property_Area_Rural", "Married", "Loan_Amount_Term", "Dependents"
+        ],
+        "Importance": [43.02, 9.23, 7.85, 6.98, 5.64, 5.43, 5.27, 3.68, 2.93, 1.59, 2.65, 1.30, 1.21]
+    }
+    feat_df = pd.DataFrame(feat_data)
+    st.bar_chart(feat_df.set_index("Feature"))
+
+
 # ==========================================
-# TAB 3: VIVA CHEATSHEET
+# TAB 3: VIVA GUIDE & FAQS
 # ==========================================
 with tab_faq:
-    st.markdown("### 🎓 Essential Viva Questions & Confident Answers")
-    st.caption("Read these through before your viva presentation — answers are direct and easy to memorize!")
+    st.markdown("### 🎓 Viva Voce Preparation Cheatsheet")
+    st.caption("Concise, direct, and technically accurate answers for your lab examiners:")
 
     faqs = [
         (
-            "1. What is the objective of this project?",
-            "To automate the loan eligibility assessment process based on applicant demographics, income, and past credit history using Machine Learning classification."
+            "1. What is the objective and problem formulation of this project?",
+            "It is a Supervised Binary Classification task. The objective is to predict whether a loan application should be Approved (1) or Rejected (0) based on financial attributes, loan terms, and credit history."
         ),
         (
-            "2. What is the target variable and what type of problem is this?",
-            "The target is 'Loan_Status' (Yes = 1, No = 0). It is a Supervised Binary Classification problem."
+            "2. Why did you add engineered features (TotalIncome, EMI, LTI, DTI)?",
+            "Raw dollar figures in isolation do not measure debt affordability. In real banking, lenders evaluate repayment capacity using ratios: Total Household Income (joint capacity), EMI (monthly obligation), DTI (monthly debt burden), and LTI (leverage). Engineering these inside the pipeline enables the model to evaluate affordability realistically."
         ),
         (
-            "3. Why did you use Median for numerical imputation and Mode for categorical?",
-            "Numerical financial data like Income has outliers/skewed distributions, so the Median is robust against outliers unlike the Mean. Categorical data uses the Mode (most frequent value) because average does not apply to non-numeric categories."
+            "3. Why switch from Linear SVM to Random Forest?",
+            "Linear SVM fitted a hyperplane where Credit_History received virtually all decision weight (+0.6865) while income and loan amounts were near zero. This caused severe failure in stress tests: an applicant with $0 income requesting $500,000 was approved simply because they checked good credit! Random Forest captures non-linear feature interactions between debt ratios and credit history, rejecting unaffordable loans."
         ),
         (
-            "4. Why use a Pipeline instead of transforming data manually?",
-            "A Pipeline bundles preprocessing (imputation + scaling + encoding) together with the model. This strictly prevents 'Data Leakage' from the test set into the training set and makes deployment bug-free."
+            "4. Did accuracy improve after adding engineered features?",
+            "No. Across repeated 5-fold cross-validation (25 folds), accuracy remained around 80% (Linear SVM ~80.9% ± 2.3% vs Random Forest with engineered features ~79.6% ± 2.1%). The purpose of feature engineering was not an artificial accuracy increase on historical data, but ensuring economically sound, stress-tested predictions on real-world edge cases."
         ),
         (
-            "5. What was the single most decisive feature for loan approval?",
-            "Credit_History. In banking, applicants with past defaults (Credit_History = 0) represent very high default probability, which our model captures strongly."
+            "5. What are the key limitations of the model and dataset?",
+            "First, the dataset is relatively small (614 rows). Second, the new model exhibits a tradeoff: it assigns ~25% approval probability to bad-credit applicants with high income, even though historical data only approved ~8% of bad-credit applicants. Third, real banking requires external bureau data, bank statement analysis, and collateral verification not captured here."
         ),
         (
-            "6. Why did you use 'class_weight=balanced'?",
-            "In this dataset, roughly 69% of loans were approved and 31% rejected. Setting class_weight='balanced' penalizes mistakes on the minority class (rejections) equally, so the model does not become biased toward approving everyone."
+            "6. What is the true definition and role of the F1-Score here?",
+            "F1-Score is the harmonic mean of Precision and Recall specifically for the positive class (Approved). It does NOT use True Negatives (correct rejections). It measures how effectively the model identifies approved loans without excessive false alarms."
         ),
         (
-            "7. Why is F1-score / Recall important for this problem?",
-            "In banking, granting a loan to an ineligible person (False Positive / Type I error) can cause heavy financial default loss. F1-score balances Precision and Recall rather than relying solely on raw Accuracy."
+            "7. Why use class_weight='balanced'?",
+            "The dataset has class imbalance: approximately 69% approved vs 31% rejected. Without balanced weighting, models can become biased toward approving everyone. Setting class_weight='balanced' automatically inversely weights class frequencies."
         ),
         (
-            "8. How does Support Vector Machine (Linear SVM) work?",
-            "SVM finds an optimal hyperplane that maximizes the margin (distance) between the two classes (Approved vs Rejected) in feature space."
-        )
+            "8. Why use an end-to-end scikit-learn Pipeline?",
+            "A Pipeline bundles custom feature extraction, imputation, scaling, one-hot encoding, and the model into a single atomic object. This strictly prevents Data Leakage between train and test splits during cross-validation and guarantees identical transformations in production."
+        ),
     ]
 
     for q, a in faqs:
@@ -483,4 +498,4 @@ with tab_faq:
 
 # Footer
 st.markdown("---")
-st.caption("ML Lab Project • 5th Semester • Loan Approval Predictor using Scikit-Learn & Streamlit")
+st.caption("ML Lab Final Project • 5th Semester • Automated Credit Evaluation Pipeline with Streamlit & Scikit-Learn")

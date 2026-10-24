@@ -1,17 +1,46 @@
 """
-Standalone Loan Approval Predictor Script
+Standalone Loan Approval Predictor Script (CLI)
 Allows quick terminal prediction and testing without needing a web browser.
+Gracefully handles missing or incompatible pickle files by retraining on the fly.
 """
 
 import os
 import joblib
 import pandas as pd
+from feature_engineering import FinancialFeatureEngineer, train_model
+
+MODEL_PATH = os.path.join(os.path.dirname(__file__), "loan_approval_model.pkl")
+CSV_PATH = os.path.join(os.path.dirname(__file__), "loan_prediction.csv")
+
 
 def load_pipeline():
-    model_path = os.path.join(os.path.dirname(__file__), "loan_approval_model.pkl")
-    if not os.path.exists(model_path):
-        raise FileNotFoundError(f"Model file not found at: {model_path}")
-    return joblib.load(model_path)
+    """
+    Load the trained model pipeline.
+    If the pickle file is missing or fails to load, automatically retrains from CSV.
+    """
+    if os.path.exists(MODEL_PATH):
+        try:
+            model = joblib.load(MODEL_PATH)
+            # Smoke test prediction to ensure compatibility
+            dummy = pd.DataFrame([{
+                'Gender': 'Male', 'Married': 'Yes', 'Dependents': 0, 'Education': 'Graduate',
+                'Self_Employed': 'No', 'ApplicantIncome': 5000.0, 'CoapplicantIncome': 1500.0,
+                'LoanAmount': 120.0, 'Loan_Amount_Term': 360.0, 'Credit_History': 1.0,
+                'Property_Area': 'Urban'
+            }])
+            model.predict(dummy)
+            return model
+        except Exception:
+            pass
+
+    # Fallback: train fresh pipeline directly from CSV
+    model = train_model(CSV_PATH)
+    try:
+        joblib.dump(model, MODEL_PATH)
+    except Exception:
+        pass
+    return model
+
 
 def predict_loan_status(
     gender="Male",
@@ -24,82 +53,95 @@ def predict_loan_status(
     loan_amount=120,
     loan_term=360,
     credit_history=1.0,
-    property_area="Urban"
+    property_area="Urban",
 ):
     """
     Predict loan status for given applicant attributes.
-    Returns: (status_text, approval_probability_percentage)
+    Returns: (status_text, approval_probability_percentage, metrics_dict)
     """
     pipeline = load_pipeline()
 
-    sample_df = pd.DataFrame([{
-        'Gender': gender,
-        'Married': married,
-        'Dependents': float(dependents),
-        'Education': education,
-        'Self_Employed': self_employed,
-        'ApplicantIncome': float(applicant_income),
-        'CoapplicantIncome': float(coapplicant_income),
-        'LoanAmount': float(loan_amount),
-        'Loan_Amount_Term': float(loan_term),
-        'Credit_History': float(credit_history),
-        'Property_Area': property_area
-    }])
+    sample_df = pd.DataFrame([
+        {
+            "Gender": gender,
+            "Married": married,
+            "Dependents": float(dependents),
+            "Education": education,
+            "Self_Employed": self_employed,
+            "ApplicantIncome": float(applicant_income),
+            "CoapplicantIncome": float(coapplicant_income),
+            "LoanAmount": float(loan_amount),
+            "Loan_Amount_Term": float(loan_term),
+            "Credit_History": float(credit_history),
+            "Property_Area": property_area,
+        }
+    ])
 
     pred = pipeline.predict(sample_df)[0]
     prob = pipeline.predict_proba(sample_df)[0, 1]
 
+    # Calculate affordability metrics for display
+    total_income = float(applicant_income) + float(coapplicant_income)
+    denom_inc = max(total_income, 1.0)
+    term_guarded = max(float(loan_term), 1.0)
+    emi = (float(loan_amount) * 1000.0) / term_guarded
+    lti = (float(loan_amount) * 1000.0) / (denom_inc * 12.0)
+    dti = emi / denom_inc
+
+    metrics = {
+        "TotalIncome": total_income,
+        "EMI": emi,
+        "LTI": lti,
+        "DTI": dti,
+    }
+
     status = "APPROVED" if pred == 1 else "REJECTED"
-    return status, prob
+    return status, prob, metrics
+
 
 def run_interactive_cli():
-    print("=" * 60)
+    print("=" * 65)
     print("      🏦 LOAN APPROVAL PREDICTOR (CLI DEMO) 🏦")
-    print("=" * 60)
+    print("   Random Forest Classifier with Banking Feature Engineering")
+    print("=" * 65)
     print("Select an option:")
-    print("1. Run Sample Test 1 (Eligible Applicant - Good Credit)")
-    print("2. Run Sample Test 2 (Ineligible Applicant - Bad Credit History)")
-    print("3. Enter Custom Applicant Details")
-    print("4. Exit")
-    print("-" * 60)
+    print("1. Run Sample Test 1 (Standard Eligible Applicant)")
+    print("2. Run Sample Test 2 (Absurd Case: Income $500, Loan $900k, Credit 1.0)")
+    print("3. Run Sample Test 3 (Ineligible Applicant: Credit History Defaulted)")
+    print("4. Enter Custom Applicant Details")
+    print("5. Exit")
+    print("-" * 65)
 
-    choice = input("Enter choice (1/2/3/4): ").strip()
+    choice = input("Enter choice (1/2/3/4/5): ").strip()
 
     if choice == "1":
-        print("\nTesting Sample 1: Eligible Applicant (Good Credit, High Income)...")
-        status, prob = predict_loan_status(
-            gender="Male",
-            married="Yes",
-            dependents=0,
-            education="Graduate",
-            self_employed="No",
-            applicant_income=6000,
-            coapplicant_income=2500,
-            loan_amount=130,
-            loan_term=360,
-            credit_history=1.0,
-            property_area="Urban"
+        print("\nTesting Sample 1: Standard Eligible Applicant...")
+        status, prob, m = predict_loan_status(
+            applicant_income=5000, coapplicant_income=1500,
+            loan_amount=120, loan_term=360, credit_history=1.0
         )
         print(f"Result: >>> {status} <<< (Approval Confidence: {prob:.2%})")
+        print(f"Financial Ratios: EMI = ${m['EMI']:.2f}/mo | DTI = {m['DTI']:.2%} | LTI = {m['LTI']:.2f}x")
 
     elif choice == "2":
-        print("\nTesting Sample 2: Ineligible Applicant (Credit History Defaulted)...")
-        status, prob = predict_loan_status(
-            gender="Male",
-            married="No",
-            dependents=0,
-            education="Not Graduate",
-            self_employed="No",
-            applicant_income=2200,
-            coapplicant_income=0,
-            loan_amount=150,
-            loan_term=360,
-            credit_history=0.0,
-            property_area="Rural"
+        print("\nTesting Sample 2: Absurd Case (Low Income, Huge Loan, Credit 1.0)...")
+        status, prob, m = predict_loan_status(
+            applicant_income=500, coapplicant_income=0,
+            loan_amount=900, loan_term=360, credit_history=1.0
         )
         print(f"Result: >>> {status} <<< (Approval Confidence: {prob:.2%})")
+        print(f"Financial Ratios: EMI = ${m['EMI']:.2f}/mo | DTI = {m['DTI']:.2%} | LTI = {m['LTI']:.2f}x")
 
     elif choice == "3":
+        print("\nTesting Sample 3: Ineligible Applicant (Credit History Defaulted)...")
+        status, prob, m = predict_loan_status(
+            applicant_income=2500, coapplicant_income=0,
+            loan_amount=150, loan_term=360, credit_history=0.0
+        )
+        print(f"Result: >>> {status} <<< (Approval Confidence: {prob:.2%})")
+        print(f"Financial Ratios: EMI = ${m['EMI']:.2f}/mo | DTI = {m['DTI']:.2%} | LTI = {m['LTI']:.2f}x")
+
+    elif choice == "4":
         print("\n--- Enter Applicant Details ---")
         try:
             gender = input("Gender (Male/Female) [default: Male]: ").strip() or "Male"
@@ -114,27 +156,23 @@ def run_interactive_cli():
             credit = float(input("Credit History (1.0 for Good, 0.0 for Bad) [default: 1.0]: ").strip() or "1.0")
             area = input("Property Area (Urban/Semiurban/Rural) [default: Urban]: ").strip() or "Urban"
 
-            status, prob = predict_loan_status(
-                gender=gender,
-                married=married,
-                dependents=dependents,
-                education=education,
-                self_employed=self_emp,
-                applicant_income=app_inc,
-                coapplicant_income=coapp_inc,
-                loan_amount=loan_amt,
-                loan_term=term,
-                credit_history=credit,
+            status, prob, m = predict_loan_status(
+                gender=gender, married=married, dependents=dependents,
+                education=education, self_employed=self_emp,
+                applicant_income=app_inc, coapplicant_income=coapp_inc,
+                loan_amount=loan_amt, loan_term=term, credit_history=credit,
                 property_area=area
             )
-            print("-" * 60)
+            print("-" * 65)
             print(f"Prediction Result: >>> {status} <<< (Approval Confidence: {prob:.2%})")
-            print("-" * 60)
+            print(f"Financial Ratios: EMI = ${m['EMI']:.2f}/mo | DTI = {m['DTI']:.2%} | LTI = {m['LTI']:.2f}x")
+            print("-" * 65)
         except Exception as e:
             print(f"Invalid input: {e}")
 
     else:
         print("Exiting...")
+
 
 if __name__ == "__main__":
     run_interactive_cli()
