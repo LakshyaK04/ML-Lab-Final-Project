@@ -76,7 +76,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
-# --- MODEL LOADING & FALLBACK ---
+# --- MODEL LOADING ---
 @st.cache_resource
 def get_model():
     model_path = os.path.join(os.path.dirname(__file__), "loan_approval_model.pkl")
@@ -84,27 +84,11 @@ def get_model():
 
     if os.path.exists(model_path):
         try:
-            model = joblib.load(model_path)
-            # Smoke test
-            dummy = pd.DataFrame([{
-                'Gender': 'Male', 'Married': 'Yes', 'Dependents': 0.0,
-                'Education': 'Graduate', 'Self_Employed': 'No',
-                'ApplicantIncome': 5000.0, 'CoapplicantIncome': 1500.0,
-                'LoanAmount': 120.0, 'Loan_Amount_Term': 360.0,
-                'Credit_History': 1.0, 'Property_Area': 'Urban'
-            }])
-            model.predict(dummy)
-            return model
+            return joblib.load(model_path)
         except Exception:
             pass
 
-    # Fallback: train fresh pipeline directly from CSV
-    fresh_model = train_model(csv_path)
-    try:
-        joblib.dump(fresh_model, model_path)
-    except Exception:
-        pass
-    return fresh_model
+    return train_model(csv_path)
 
 
 @st.cache_data
@@ -172,7 +156,7 @@ with st.sidebar:
         st.session_state.dependents = 0
         st.session_state.education = "Graduate"
         st.session_state.self_employed = "No"
-        st.session_state.app_income = 150
+        st.session_state.app_income = 0
         st.session_state.coapp_income = 0
         st.session_state.loan_amt = 500
         st.session_state.term = 360
@@ -204,7 +188,7 @@ st.markdown('<div class="sub-header">Automated credit evaluation powered by Rand
 
 tab_pred, tab_perf, tab_faq = st.tabs([
     "🔮 Interactive Predictor",
-    "🏆 Model Performance & Architecture",
+    "📊 Model Performance & Architecture",
     "🎓 Viva Guide & FAQs"
 ])
 
@@ -385,7 +369,7 @@ with tab_pred:
 # TAB 2: MODEL PERFORMANCE & ARCHITECTURE
 # ==========================================
 with tab_perf:
-    st.markdown("### 🏆 Machine Learning Model Evaluation & Cross-Validation")
+    st.markdown("### 📊 Machine Learning Model Evaluation & Cross-Validation")
     st.write("""
     Models were benchmarked using **Repeated Stratified 5-Fold Cross-Validation (5 repeats = 25 evaluation splits)**
     to accurately capture mean generalization accuracy and variance:
@@ -400,14 +384,14 @@ with tab_perf:
                     "CV Accuracy Std": "±{:.2%}",
                     "Mean CV F1": "{:.4f}",
                     "CV F1 Std": "±{:.4f}"
-                }).highlight_max(axis=0, subset=["Mean CV Accuracy", "Mean CV F1"], color="#D1FAE5"),
+                }),
                 use_container_width=True
             )
         with c2:
             st.markdown("""
             **Honest Evaluation Summary:**
             - **Accuracy is statistically comparable (~80%):** Linear SVM (~80.9% ± 2.3%) and Random Forest with Engineered Features (~79.6% ± 2.1%) perform equally well within noise margins.
-            - **Why Random Forest was chosen:** Linear SVM relied almost exclusively on `Credit_History`, approving absurd applications (e.g. $0 income, $500k loan). Random Forest balances credit track record with economic affordability (EMI, DTI, LTI).
+            - **Why Random Forest was chosen:** The old Linear SVM practically ignored income (giving it near-zero weight once credit history was known), which caused it to approve absurd applications (e.g., $0 income, $500k loan). The new Random Forest model actively uses income, loan amount, and affordability ratios to verify financial capacity.
             - **Known Tradeoff:** The Random Forest model yields a higher approval probability for bad-credit applicants (~25%) compared to Linear SVM (~9%), even though only ~8% of bad-credit applicants were approved in the training set.
             """)
 
@@ -468,7 +452,7 @@ with tab_faq:
         ),
         (
             "3. Why switch from Linear SVM to Random Forest?",
-            "Linear SVM fitted a hyperplane where Credit_History received virtually all decision weight (+0.6865) while income and loan amounts were near zero. This caused severe failure in stress tests: an applicant with $0 income requesting $500,000 was approved simply because they checked good credit! Random Forest captures non-linear feature interactions between debt ratios and credit history, rejecting unaffordable loans."
+            "The baseline Linear SVM practically ignored income once credit history was known. This caused severe failure in stress tests: an applicant with $0 income requesting $500,000 was approved simply because they had good credit. The old SVM ignored income, whereas the new model actively uses income, loan amount, and affordability ratios to verify repayment capacity."
         ),
         (
             "4. Did accuracy improve after adding engineered features?",

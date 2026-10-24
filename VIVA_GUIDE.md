@@ -10,9 +10,9 @@
 
 > *"Sir/Ma'am, my project is an automated **Loan Approval Prediction System** built on historical banking records. In credit underwriting, evaluating applications manually is slow, but naively trained models often make unrealistic decisions.*
 >
-> *Initially, a linear model placed almost all decision weight on past credit history, causing it to approve absurd edge cases—like an applicant with zero income requesting a $500,000 loan simply because their credit flag was 1. To fix this, we implemented **Banking Feature Engineering** directly inside a Scikit-Learn pipeline to compute **Total Household Income**, **EMI**, **Debt-to-Income (DTI)**, and **Loan-to-Income (LTI)** ratios.*
+> *Initially, a linear model placed almost all decision weight on past credit history and practically ignored income, causing it to approve absurd edge cases—like an applicant with zero income requesting a $500,000 loan simply because their credit flag was 1. To fix this, we implemented **Banking Feature Engineering** directly inside a Scikit-Learn pipeline to compute **Total Household Income**, **EMI**, **Debt-to-Income (DTI)**, and **Loan-to-Income (LTI)** ratios.*
 >
-> *We evaluated our pipeline using **Repeated Stratified 5-Fold Cross-Validation (25 folds)** and selected **Random Forest** (300 trees, max depth 5). The overall accuracy remained around **80%** (Linear SVM ~80.9% ± 2.3% vs Random Forest with engineered features ~79.6% ± 2.1%), but the model behavior became economically sound and passed extreme stress tests. We deployed this into an interactive Streamlit application with live affordability metrics."*
+> *We evaluated our pipeline using **Repeated Stratified 5-Fold Cross-Validation (25 folds)** and selected **Random Forest** (300 trees, max depth 5). The overall accuracy remained around **80%** (Linear SVM ~80.9% ± 2.3% vs Random Forest with engineered features ~79.6% ± 2.1%), but the model behavior became economically sound: the old SVM ignored income, whereas the new model actively uses income and debt burden to check affordability. We deployed this into an interactive Streamlit application with live affordability metrics."*
 
 ---
 
@@ -66,8 +66,8 @@ Models benchmarked using **Repeated Stratified 5-Fold Cross-Validation (5 repeat
 
 | Model | Mean CV Accuracy | Accuracy Std | Mean CV F1 | CV F1 Std | Notes |
 |---|---|---|---|---|---|
-| **Linear SVM (Raw Features)** | 80.95% | ±2.30% | 0.8766 | ±0.0138 | Relies almost 100% on Credit_History; approves absurd loans. |
-| **Random Forest (Engineered Features)** 🏆 | **79.61%** | **±2.15%** | **0.8616** | **±0.0162** | **Accurate (~80%) and checks affordability; passes stress tests.** |
+| **Linear SVM (Raw Features)** | 80.95% | ±2.30% | 0.8766 | ±0.0138 | Practically ignored income; approved absurd loans with good credit. |
+| **Random Forest (Engineered Features)** | **79.61%** | **±2.15%** | **0.8616** | **±0.0162** | **Accurate (~80%) and actively checks affordability; passes stress tests.** |
 | Random Forest (Raw Features) | 77.07% | ±3.04% | 0.8444 | ±0.0238 | Lower accuracy without financial ratio interactions. |
 | Logistic Regression (Raw Features) | 75.97% | ±3.07% | 0.8313 | ±0.0260 | Linear decision boundary with higher variance. |
 
@@ -87,9 +87,9 @@ Implementing these in the pipeline allowed the model to evaluate debt burden dir
 ---
 
 ### Q2: Why switch from Linear SVM to Random Forest?
-**Answer:** In the baseline Linear SVM, `Credit_History` received almost all decision weight (+0.6865) while income and loan amounts received coefficients near zero. When tested on edge cases, the Linear SVM approved an applicant with **$0 income requesting a $500,000 loan** simply because `Credit_History` was 1.0!
+**Answer:** In the baseline Linear SVM, `Credit_History` dominated the decision while income and loan amounts were practically ignored (coefficients near zero). When tested on edge cases, the Linear SVM approved an applicant with **$0 income requesting a $500,000 loan** simply because `Credit_History` was 1.0!
 
-Random Forest handles non-linear relationships and feature interactions naturally. With engineered ratios, Random Forest balances credit history with debt burden (Credit History dropped from ~99% to ~43% importance, with financial metrics making up ~44%), correctly rejecting unaffordable loans.
+The old SVM ignored income, whereas the new Random Forest model uses income, loan amount, and affordability ratios. Random Forest captures non-linear feature interactions between debt ratios and credit history, correctly rejecting unaffordable loans.
 
 ---
 
@@ -102,7 +102,7 @@ The real motivation was not an artificial accuracy boost on historical data, but
 ---
 
 ### Q4: Why were income weights so small in the old Linear SVM if data was already scaled?
-**Answer:** It was **not** a raw dollar scaling issue, because the pipeline already used `StandardScaler`. The true reason is that once `Credit_History` is known in this dataset, income adds very little linearly separable signal. Because the linear model minimizes empirical loss, it converged on a separating hyperplane that relied almost entirely on the single dominant binary feature (`Credit_History`).
+**Answer:** It was **not** a raw dollar scaling issue, because the pipeline already used `StandardScaler`. The true reason is that once `Credit_History` is known in this dataset, income adds very little linearly separable signal. Because the linear model minimizes empirical loss, it converged on a separating hyperplane that practically ignored income and relied almost entirely on the single dominant binary feature (`Credit_History`).
 
 ---
 

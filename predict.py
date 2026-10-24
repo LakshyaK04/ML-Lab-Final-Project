@@ -1,7 +1,7 @@
 """
 Standalone Loan Approval Predictor Script (CLI)
 Allows quick terminal prediction and testing without needing a web browser.
-Gracefully handles missing or incompatible pickle files by retraining on the fly.
+Gracefully handles missing model files by training from CSV if needed.
 """
 
 import os
@@ -16,30 +16,15 @@ CSV_PATH = os.path.join(os.path.dirname(__file__), "loan_prediction.csv")
 def load_pipeline():
     """
     Load the trained model pipeline.
-    If the pickle file is missing or fails to load, automatically retrains from CSV.
+    If the pickle file is missing or fails to load, falls back to training from CSV.
     """
     if os.path.exists(MODEL_PATH):
         try:
-            model = joblib.load(MODEL_PATH)
-            # Smoke test prediction to ensure compatibility
-            dummy = pd.DataFrame([{
-                'Gender': 'Male', 'Married': 'Yes', 'Dependents': 0, 'Education': 'Graduate',
-                'Self_Employed': 'No', 'ApplicantIncome': 5000.0, 'CoapplicantIncome': 1500.0,
-                'LoanAmount': 120.0, 'Loan_Amount_Term': 360.0, 'Credit_History': 1.0,
-                'Property_Area': 'Urban'
-            }])
-            model.predict(dummy)
-            return model
+            return joblib.load(MODEL_PATH)
         except Exception:
             pass
 
-    # Fallback: train fresh pipeline directly from CSV
-    model = train_model(CSV_PATH)
-    try:
-        joblib.dump(model, MODEL_PATH)
-    except Exception:
-        pass
-    return model
+    return train_model(CSV_PATH)
 
 
 def predict_loan_status(
