@@ -214,22 +214,25 @@ with st.form("loan_form"):
         st.markdown("##### 💵 Financial Details")
         app_income = st.number_input(
             "Applicant Monthly Income ($)",
-            min_value=0, max_value=100000,
-            value=5000, step=250,
-            help="Primary applicant's monthly earnings"
+            min_value=0,
+            value=5000, step=500,
+            help="Primary applicant's gross monthly earnings"
         )
         coapp_income = st.number_input(
             "Co-applicant Monthly Income ($)",
-            min_value=0, max_value=50000,
-            value=1500, step=250,
-            help="Spouse or guarantor monthly earnings (0 if none)"
+            min_value=0,
+            value=1500, step=500,
+            help="Spouse or co-borrower monthly earnings (0 if none)"
         )
-        loan_amt = st.number_input(
+        loan_amt_input = st.number_input(
             "Loan Amount (in Thousands, e.g. 120 = $120,000)",
-            min_value=10, max_value=1000,
+            min_value=1,
             value=120, step=5,
-            help="Requested loan amount in thousands of dollars"
+            help="Requested loan amount in thousands. E.g. enter 120 for $120,000, or 1205 for $1,205,000"
         )
+
+        # Smart loan amount handling: if user enters full dollars (>= 10,000), convert to thousands
+        loan_amt = float(loan_amt_input) / 1000.0 if float(loan_amt_input) >= 10000 else float(loan_amt_input)
 
         tot_inc = app_income + coapp_income
         st.info(f"**Total Household Income:** ${tot_inc:,.0f} / month")
