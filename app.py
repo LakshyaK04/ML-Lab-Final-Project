@@ -166,13 +166,36 @@ def get_model():
     model_path = os.path.join(os.path.dirname(__file__), "loan_approval_model.pkl")
     csv_path = os.path.join(os.path.dirname(__file__), "loan_prediction.csv")
 
+    sample_test = pd.DataFrame([{
+        "Gender": "Male",
+        "Married": "Yes",
+        "Dependents": 0.0,
+        "Education": "Graduate",
+        "Self_Employed": "No",
+        "ApplicantIncome": 5000,
+        "CoapplicantIncome": 1500,
+        "LoanAmount": 120,
+        "Loan_Amount_Term": 360,
+        "Credit_History": 1.0,
+        "Property_Area": "Urban",
+    }])
+
     if os.path.exists(model_path):
         try:
-            return joblib.load(model_path)
+            model = joblib.load(model_path)
+            # Verify the model can execute transform and predict without cross-version issues
+            model.predict(sample_test)
+            return model
         except Exception:
             pass
 
-    return train_model(csv_path)
+    # Fall back to training fresh on this environment
+    fresh_model = train_model(csv_path)
+    try:
+        joblib.dump(fresh_model, model_path)
+    except Exception:
+        pass
+    return fresh_model
 
 
 pipeline = get_model()
@@ -438,7 +461,7 @@ if submit_btn:
     m1, m2, m3, m4 = st.columns(4)
     m1.metric("Household Monthly Income", f"${total_income:,.0f}")
     m2.metric("Requested Loan Amount", f"${loan_amt * 1000:,.0f}")
-    m3.metric("Tenure Length", f"{term / 12:.1f} years ({term} mos)")
+    m3.metric("Tenure Length", f"{int(term / 12)} Yrs ({term}m)")
     m4.metric("Credit History Status", "Verified (1.0)" if credit_val == 1.0 else "Deficient (0.0)")
 
 # Footer

@@ -21,15 +21,37 @@ CSV_PATH = os.path.join(os.path.dirname(__file__), "loan_prediction.csv")
 def load_pipeline():
     """
     Load the trained model pipeline.
-    If the pickle file is missing or fails to load, falls back to training from CSV.
+    If the pickle file is missing, corrupted, or incompatible across scikit-learn
+    versions, falls back to training from CSV cleanly.
     """
+    sample_test = pd.DataFrame([{
+        "Gender": "Male",
+        "Married": "Yes",
+        "Dependents": 0.0,
+        "Education": "Graduate",
+        "Self_Employed": "No",
+        "ApplicantIncome": 5000,
+        "CoapplicantIncome": 1500,
+        "LoanAmount": 120,
+        "Loan_Amount_Term": 360,
+        "Credit_History": 1.0,
+        "Property_Area": "Urban",
+    }])
+
     if os.path.exists(MODEL_PATH):
         try:
-            return joblib.load(MODEL_PATH)
+            model = joblib.load(MODEL_PATH)
+            model.predict(sample_test)
+            return model
         except Exception:
             pass
 
-    return train_model(CSV_PATH)
+    fresh_model = train_model(CSV_PATH)
+    try:
+        joblib.dump(fresh_model, MODEL_PATH)
+    except Exception:
+        pass
+    return fresh_model
 
 
 def predict_loan_status(
