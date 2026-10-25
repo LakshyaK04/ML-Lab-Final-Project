@@ -16,7 +16,7 @@ st.set_page_config(
     page_title="Loan Approval Predictor",
     page_icon="💳",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="collapsed"
 )
 
 # --- MODERN THEME & CSS ---
@@ -145,16 +145,9 @@ st.markdown("""
         font-weight: 500 !important;
     }
 
-    /* Sidebar Buttons */
-    section[data-testid="stSidebar"] div.stButton > button {
-        border-radius: 8px !important;
-        border: 1px solid rgba(148, 163, 184, 0.2) !important;
-        transition: all 0.2s ease !important;
-    }
-    section[data-testid="stSidebar"] div.stButton > button:hover {
-        border-color: #38BDF8 !important;
-        color: #38BDF8 !important;
-        transform: translateY(-1px) !important;
+    /* Hide Sidebar & Toggle Control */
+    [data-testid="stSidebar"], [data-testid="collapsedControl"] {
+        display: none !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -200,86 +193,6 @@ def get_model():
 
 pipeline = get_model()
 
-# --- DEFAULT SESSION STATE ---
-if "app_income" not in st.session_state:
-    st.session_state.gender = "Male"
-    st.session_state.married = "Yes"
-    st.session_state.dependents = 0
-    st.session_state.education = "Graduate"
-    st.session_state.self_employed = "No"
-    st.session_state.app_income = 5000
-    st.session_state.coapp_income = 1500
-    st.session_state.loan_amt = 120
-    st.session_state.term = 360
-    st.session_state.credit = "Good (Meets guidelines - Score 1.0)"
-    st.session_state.property_area = "Urban"
-
-# --- SIDEBAR: QUICK TEST PRESETS ---
-with st.sidebar:
-    st.image("https://img.icons8.com/isometric/100/bank-building.png", width=65)
-    st.markdown("### 🏦 **Quick Test Presets**")
-    st.caption("Click any preset to verify realistic banking behavior:")
-
-    if st.button("✅ 1. Normal Good Applicant", use_container_width=True):
-        st.session_state.gender = "Male"
-        st.session_state.married = "Yes"
-        st.session_state.dependents = 0
-        st.session_state.education = "Graduate"
-        st.session_state.self_employed = "No"
-        st.session_state.app_income = 5000
-        st.session_state.coapp_income = 1500
-        st.session_state.loan_amt = 120
-        st.session_state.term = 360
-        st.session_state.credit = "Good (Meets guidelines - Score 1.0)"
-        st.session_state.property_area = "Urban"
-        st.rerun()
-
-    if st.button("⚠️ 2. Stress Test: Low Income, Huge Loan ($900k)", use_container_width=True):
-        st.session_state.gender = "Male"
-        st.session_state.married = "Yes"
-        st.session_state.dependents = 0
-        st.session_state.education = "Graduate"
-        st.session_state.self_employed = "No"
-        st.session_state.app_income = 500
-        st.session_state.coapp_income = 0
-        st.session_state.loan_amt = 900
-        st.session_state.term = 360
-        st.session_state.credit = "Good (Meets guidelines - Score 1.0)"
-        st.session_state.property_area = "Urban"
-        st.rerun()
-
-    if st.button("❌ 3. Zero Income, Large Loan ($500k)", use_container_width=True):
-        st.session_state.gender = "Male"
-        st.session_state.married = "No"
-        st.session_state.dependents = 0
-        st.session_state.education = "Graduate"
-        st.session_state.self_employed = "No"
-        st.session_state.app_income = 0
-        st.session_state.coapp_income = 0
-        st.session_state.loan_amt = 500
-        st.session_state.term = 360
-        st.session_state.credit = "Good (Meets guidelines - Score 1.0)"
-        st.session_state.property_area = "Urban"
-        st.rerun()
-
-    if st.button("💼 4. High Earner, Bad Credit ($50k/mo)", use_container_width=True):
-        st.session_state.gender = "Female"
-        st.session_state.married = "Yes"
-        st.session_state.dependents = 1
-        st.session_state.education = "Graduate"
-        st.session_state.self_employed = "Yes"
-        st.session_state.app_income = 50000
-        st.session_state.coapp_income = 0
-        st.session_state.loan_amt = 150
-        st.session_state.term = 360
-        st.session_state.credit = "Poor / Defaulted (Score 0.0)"
-        st.session_state.property_area = "Semiurban"
-        st.rerun()
-
-    st.markdown("---")
-    st.caption("**Model Architecture:** Random Forest (300 trees, max depth 5) with Pipeline Feature Engineering (Total Income, EMI, DTI, LTI).")
-
-
 # --- MAIN HEADER ---
 st.markdown('<div class="main-header">💳 Loan Approval Predictor</div>', unsafe_allow_html=True)
 st.markdown('<div class="sub-header">Automated credit evaluation powered by Random Forest & Banking Affordability Metrics</div>', unsafe_allow_html=True)
@@ -291,45 +204,30 @@ with st.form("loan_form"):
 
     with col1:
         st.markdown("##### 👤 Personal & Employment Profile")
-        gender = st.selectbox(
-            "Gender", ["Male", "Female"],
-            index=["Male", "Female"].index(st.session_state.gender)
-        )
-        married = st.selectbox(
-            "Marital Status", ["Yes", "No"],
-            index=["Yes", "No"].index(st.session_state.married)
-        )
-        dependents = st.selectbox(
-            "Number of Dependents", [0, 1, 2, 3],
-            index=[0, 1, 2, 3].index(st.session_state.dependents)
-        )
-        education = st.selectbox(
-            "Education Level", ["Graduate", "Not Graduate"],
-            index=["Graduate", "Not Graduate"].index(st.session_state.education)
-        )
-        self_employed = st.selectbox(
-            "Self Employed?", ["No", "Yes"],
-            index=["No", "Yes"].index(st.session_state.self_employed)
-        )
+        gender = st.selectbox("Gender", ["Male", "Female"], index=0)
+        married = st.selectbox("Marital Status", ["Yes", "No"], index=0)
+        dependents = st.selectbox("Number of Dependents", [0, 1, 2, 3], index=0)
+        education = st.selectbox("Education Level", ["Graduate", "Not Graduate"], index=0)
+        self_employed = st.selectbox("Self Employed?", ["No", "Yes"], index=0)
 
     with col2:
         st.markdown("##### 💵 Financial Details")
         app_income = st.number_input(
             "Applicant Monthly Income ($)",
             min_value=0, max_value=100000,
-            value=int(st.session_state.app_income), step=250,
+            value=5000, step=250,
             help="Primary applicant's monthly earnings"
         )
         coapp_income = st.number_input(
             "Co-applicant Monthly Income ($)",
             min_value=0, max_value=50000,
-            value=int(st.session_state.coapp_income), step=250,
+            value=1500, step=250,
             help="Spouse or guarantor monthly earnings (0 if none)"
         )
         loan_amt = st.number_input(
             "Loan Amount (in Thousands, e.g. 120 = $120,000)",
             min_value=10, max_value=1000,
-            value=int(st.session_state.loan_amt), step=5,
+            value=120, step=5,
             help="Requested loan amount in thousands of dollars"
         )
 
@@ -341,18 +239,18 @@ with st.form("loan_form"):
         term = st.selectbox(
             "Loan Term (in Months)",
             [360, 180, 120, 240, 300, 480, 84, 60],
-            index=[360, 180, 120, 240, 300, 480, 84, 60].index(st.session_state.term),
+            index=0,
             help="360 months = 30 years, 180 months = 15 years"
         )
         credit = st.selectbox(
             "Credit History Status",
             ["Good (Meets guidelines - Score 1.0)", "Poor / Defaulted (Score 0.0)"],
-            index=["Good (Meets guidelines - Score 1.0)", "Poor / Defaulted (Score 0.0)"].index(st.session_state.credit),
+            index=0,
             help="Historical credit repayment track record"
         )
         property_area = st.selectbox(
             "Property Area", ["Urban", "Semiurban", "Rural"],
-            index=["Urban", "Semiurban", "Rural"].index(st.session_state.property_area)
+            index=0
         )
 
     submit_btn = st.form_submit_button("🔍 Run Loan Approval Prediction", use_container_width=True, type="primary")
