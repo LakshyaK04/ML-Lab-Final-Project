@@ -19,58 +19,155 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- CUSTOM CSS ---
+# --- MODERN THEME & CSS ---
 st.markdown("""
 <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+    
+    html, body, [class*="css"] {
+        font-family: 'Inter', sans-serif;
+    }
+
+    /* Main Header with Dual-Tone Glow Gradient */
     .main-header {
-        font-size: 2.1rem;
+        font-size: 2.3rem;
         font-weight: 800;
-        color: #1E3A8A;
-        margin-bottom: 0.2rem;
+        background: linear-gradient(120deg, #38BDF8 0%, #818CF8 50%, #C084FC 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        margin-bottom: 0.25rem;
+        letter-spacing: -0.5px;
     }
     .sub-header {
         font-size: 1.05rem;
-        color: #4B5563;
+        color: #94A3B8;
         margin-bottom: 1.5rem;
+        font-weight: 400;
+        line-height: 1.4;
     }
-    .status-card-approved {
-        background: linear-gradient(135deg, #ECFDF5 0%, #D1FAE5 100%);
-        border: 2px solid #10B981;
+
+    /* Form Container */
+    div[data-testid="stForm"] {
+        border: 1px solid rgba(148, 163, 184, 0.18);
         border-radius: 12px;
-        padding: 22px;
+        background: rgba(15, 23, 42, 0.35);
+        padding: 22px 24px;
+    }
+
+    /* Primary Submit Button - Royal Blue Gradient */
+    button[kind="primaryFormSubmit"],
+    button[data-testid="stBaseButton-primaryFormSubmit"] {
+        background: linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%) !important;
+        color: #FFFFFF !important;
+        font-size: 1.05rem !important;
+        font-weight: 700 !important;
+        border: 1px solid rgba(255, 255, 255, 0.15) !important;
+        border-radius: 10px !important;
+        padding: 0.65rem 1.4rem !important;
+        box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35) !important;
+        transition: all 0.2s ease-in-out !important;
+    }
+    button[kind="primaryFormSubmit"]:hover,
+    button[data-testid="stBaseButton-primaryFormSubmit"]:hover {
+        background: linear-gradient(135deg, #1D4ED8 0%, #1E40AF 100%) !important;
+        box-shadow: 0 6px 20px rgba(37, 99, 235, 0.55) !important;
+        transform: translateY(-1px) !important;
+    }
+
+    /* Status Cards - Translucent Glassmorphism with Sharp Neon Borders */
+    .status-card-approved {
+        background: linear-gradient(135deg, rgba(16, 185, 129, 0.12) 0%, rgba(5, 150, 105, 0.22) 100%);
+        border: 1.5px solid #10B981;
+        border-radius: 14px;
+        padding: 24px 20px;
         text-align: center;
         margin-bottom: 16px;
+        box-shadow: 0 4px 20px rgba(16, 185, 129, 0.15);
     }
     .status-card-rejected {
-        background: linear-gradient(135deg, #FEF2F2 0%, #FEE2E2 100%);
-        border: 2px solid #EF4444;
-        border-radius: 12px;
-        padding: 22px;
+        background: linear-gradient(135deg, rgba(239, 68, 68, 0.12) 0%, rgba(220, 38, 38, 0.22) 100%);
+        border: 1.5px solid #EF4444;
+        border-radius: 14px;
+        padding: 24px 20px;
         text-align: center;
         margin-bottom: 16px;
+        box-shadow: 0 4px 20px rgba(239, 68, 68, 0.15);
     }
     .status-title {
-        font-size: 1.7rem;
+        font-size: 1.75rem;
         font-weight: 800;
-        margin-bottom: 6px;
-    }
-    .approved-text { color: #065F46; }
-    .rejected-text { color: #991B1B; }
-    .metric-badge {
-        background: #F3F4F6;
-        border-radius: 8px;
-        padding: 12px 16px;
         margin-bottom: 8px;
-        border-left: 4px solid #3B82F6;
+        letter-spacing: 0.5px;
     }
-    .viva-box {
-        background-color: #EFF6FF;
-        border-left: 5px solid #2563EB;
+    .approved-text {
+        color: #34D399 !important;
+    }
+    .rejected-text {
+        color: #F87171 !important;
+    }
+    .status-desc {
+        font-size: 1.05rem;
+        color: #F1F5F9 !important;
+        margin: 0;
+        line-height: 1.5;
+    }
+
+    /* Metric Badges - High Contrast Theme Safe */
+    .metric-badge {
+        background: #1E293B;
+        border: 1px solid rgba(148, 163, 184, 0.2);
+        border-left: 4px solid #3B82F6;
+        border-radius: 10px;
         padding: 14px 18px;
-        border-radius: 6px;
+        margin-bottom: 12px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    }
+    .metric-badge-title {
+        color: #F8FAFC !important;
+        font-size: 1.05rem;
+        font-weight: 600;
+    }
+    .metric-badge-sub {
+        color: #94A3B8 !important;
+        display: block;
+        margin-top: 5px;
+        font-size: 0.85rem;
+        line-height: 1.4;
+    }
+
+    /* Viva Box */
+    .viva-box {
+        background-color: #1E293B;
+        border: 1px solid rgba(59, 130, 246, 0.3);
+        border-left: 4px solid #3B82F6;
+        padding: 16px 20px;
+        border-radius: 8px;
         margin: 10px 0;
         font-size: 0.98rem;
-        line-height: 1.5;
+        line-height: 1.6;
+        color: #F1F5F9 !important;
+    }
+
+    /* Metric Numbers */
+    div[data-testid="stMetricValue"] {
+        color: #F8FAFC !important;
+        font-weight: 700 !important;
+    }
+    div[data-testid="stMetricLabel"] {
+        color: #94A3B8 !important;
+        font-weight: 500 !important;
+    }
+
+    /* Sidebar Buttons */
+    section[data-testid="stSidebar"] div.stButton > button {
+        border-radius: 8px !important;
+        border: 1px solid rgba(148, 163, 184, 0.2) !important;
+        transition: all 0.2s ease !important;
+    }
+    section[data-testid="stSidebar"] div.stButton > button:hover {
+        border-color: #38BDF8 !important;
+        color: #38BDF8 !important;
+        transform: translateY(-1px) !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -308,7 +405,7 @@ with tab_pred:
                 st.markdown(f"""
                 <div class="status-card-approved">
                     <div class="status-title approved-text">🎉 LOAN APPROVED</div>
-                    <p style="font-size: 1.15rem; color: #047857; margin-bottom: 4px;">
+                    <p class="status-desc">
                         Applicant meets credit and financial eligibility criteria with an approval confidence of <b>{prob_approved:.1%}</b>.
                     </p>
                 </div>
@@ -317,13 +414,19 @@ with tab_pred:
                 st.markdown(f"""
                 <div class="status-card-rejected">
                     <div class="status-title rejected-text">⚠️ LOAN REJECTED</div>
-                    <p style="font-size: 1.15rem; color: #B91C1C; margin-bottom: 4px;">
+                    <p class="status-desc">
                         Application exhibits high default or leverage risk with a rejection probability of <b>{prob_rejected:.1%}</b>.
                     </p>
                 </div>
                 """, unsafe_allow_html=True)
 
-            st.write(f"**Approval Probability Score:** `{prob_approved * 100:.1f}%`")
+            score_color = "#34D399" if pred == 1 else "#F87171"
+            st.markdown(f"""
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <span style="font-size: 0.95rem; font-weight: 600; color: #94A3B8;">Approval Probability Score:</span>
+                <span style="font-size: 1.25rem; font-weight: 800; color: {score_color};">{prob_approved * 100:.1f}%</span>
+            </div>
+            """, unsafe_allow_html=True)
             st.progress(float(prob_approved))
 
         with res_col2:
@@ -332,28 +435,33 @@ with tab_pred:
             # EMI Metric Card
             st.markdown(f"""
             <div class="metric-badge">
-                <b>Monthly EMI:</b> ${emi_val:,.2f}/month<br>
-                <small style="color: #6B7280;">Estimated monthly repayment obligation for ${loan_amt*1000:,.0f} over {term} months.</small>
+                <span class="metric-badge-title">Monthly EMI:</span> 
+                <span style="font-size: 1.15rem; color: #38BDF8; font-weight: 700;">${emi_val:,.2f}</span> / mo<br>
+                <span class="metric-badge-sub">Estimated monthly repayment obligation for ${loan_amt*1000:,.0f} over {term} months.</span>
             </div>
             """, unsafe_allow_html=True)
 
             # DTI Metric Card
             dti_status = "Healthy (Below 40%)" if dti_val <= 0.40 else "High Debt Burden (> 40%)"
-            dti_color = "#10B981" if dti_val <= 0.40 else "#EF4444"
+            dti_color = "#34D399" if dti_val <= 0.40 else "#F87171"
             st.markdown(f"""
             <div class="metric-badge" style="border-left-color: {dti_color};">
-                <b>DTI (Debt-to-Income):</b> {dti_val:.1%} — <span style="color: {dti_color}; font-weight: 600;">{dti_status}</span><br>
-                <small style="color: #6B7280;">Proportion of household monthly income consumed by this loan installment.</small>
+                <span class="metric-badge-title">DTI (Debt-to-Income):</span> 
+                <span style="font-size: 1.15rem; color: {dti_color}; font-weight: 700;">{dti_val:.1%}</span> — 
+                <span style="color: {dti_color}; font-weight: 600;">{dti_status}</span><br>
+                <span class="metric-badge-sub">Proportion of household monthly income consumed by this loan installment.</span>
             </div>
             """, unsafe_allow_html=True)
 
             # LTI Metric Card
             lti_status = "Manageable Leverage (≤ 3.0x)" if lti_val <= 3.0 else "High Leverage (> 3.0x)"
-            lti_color = "#10B981" if lti_val <= 3.0 else "#F59E0B"
+            lti_color = "#34D399" if lti_val <= 3.0 else "#FBBF24"
             st.markdown(f"""
             <div class="metric-badge" style="border-left-color: {lti_color};">
-                <b>LTI (Loan-to-Annual-Income):</b> {lti_val:.2f}x — <span style="color: {lti_color}; font-weight: 600;">{lti_status}</span><br>
-                <small style="color: #6B7280;">Total loan size relative to annual household income (${total_income*12:,.0f}/yr).</small>
+                <span class="metric-badge-title">LTI (Loan-to-Annual-Income):</span> 
+                <span style="font-size: 1.15rem; color: {lti_color}; font-weight: 700;">{lti_val:.2f}x</span> — 
+                <span style="color: {lti_color}; font-weight: 600;">{lti_status}</span><br>
+                <span class="metric-badge-sub">Total loan size relative to annual household income (${total_income*12:,.0f}/yr).</span>
             </div>
             """, unsafe_allow_html=True)
 
