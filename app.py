@@ -245,6 +245,14 @@ with st.form("loan_form"):
             index=0,
             help="360 months = 30 years, 180 months = 15 years"
         )
+        annual_rate = st.number_input(
+            "Annual Interest Rate (%)",
+            min_value=0.0,
+            max_value=30.0,
+            value=8.5,
+            step=0.1,
+            help="Annual interest rate (e.g. 8.5 for 8.5% p.a.)"
+        )
         credit = st.selectbox(
             "Credit History Status",
             ["Good (Meets guidelines - Score 1.0)", "Poor / Defaulted (Score 0.0)"],
@@ -264,8 +272,9 @@ if submit_btn:
     # Calculate banking metrics
     total_income = float(app_income) + float(coapp_income)
     denom_income = max(total_income, 1.0)
-    term_guarded = max(float(term), 1.0)
-    emi_val = (float(loan_amt) * 1000.0) / term_guarded
+    r = annual_rate / 12 / 100
+    n = term
+    emi_val = (loan_amt * 1000) * r * (1 + r)**n / ((1 + r)**n - 1) if r > 0 else (loan_amt * 1000) / n
     lti_val = (float(loan_amt) * 1000.0) / (denom_income * 12.0)
     dti_val = emi_val / denom_income
 
@@ -330,7 +339,7 @@ if submit_btn:
         <div class="metric-badge">
             <span class="metric-badge-title">Monthly EMI:</span> 
             <span style="font-size: 1.15rem; color: #38BDF8; font-weight: 700;">${emi_val:,.2f}</span> / mo<br>
-            <span class="metric-badge-sub">Estimated monthly repayment obligation for ${loan_amt*1000:,.0f} over {term} months.</span>
+            <span class="metric-badge-sub">Estimated monthly repayment obligation for ${loan_amt*1000:,.0f} over {term} months at {annual_rate}% p.a.</span>
         </div>
         """, unsafe_allow_html=True)
 
