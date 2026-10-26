@@ -8,12 +8,11 @@ An end-to-end Machine Learning classification system that predicts bank loan app
 
 | File | Purpose |
 |---|---|
-| `app.py` | Streamlit interactive web dashboard displaying predictions, live DTI/EMI metrics, and viva cheatsheet |
-| `feature_engineering.py` | Core pipeline module implementing custom Scikit-Learn transformer (`FinancialFeatureEngineer`) |
+| `app.py` | Streamlit interactive web dashboard displaying predictions, live DTI/EMI metrics, and approval probability |
+| `feature_engineering.py` | Core pipeline module implementing custom Scikit-Learn transformer (`FinancialFeatureEngineer`) and pipeline builder |
 | `predict.py` | Terminal-based Python CLI for instant testing with automatic fallback retraining if model is missing |
 | `loan_approval_model.pkl` | Serialized Scikit-Learn Pipeline (`FinancialFeatureEngineer` + `ColumnTransformer` + `RandomForestClassifier`) |
 | `loan_prediction.csv` | Standard benchmark loan dataset (614 applications) |
-| `model_comparison.csv` | Benchmarking results across models using Repeated Stratified 5-Fold Cross-Validation (25 splits) |
 | `loan_approval_training.ipynb` | Jupyter Notebook with EDA, distributions, pipeline training, and cross-validation |
 | `VIVA_GUIDE.md` | Comprehensive Viva Voce preparation guide with elevator pitch, stress tests, and technical Q&A |
 
@@ -54,9 +53,8 @@ Models benchmarked using **Repeated Stratified 5-Fold Cross-Validation (5 repeat
 ```bash
 streamlit run app.py
 ```
-- Test real-world cases with the sidebar presets (Standard Approved, Stress Test Low Income / Huge Loan, Bad Credit).
-- View live **EMI ($/mo)**, **DTI (%)**, and **LTI (x)** ratio badges alongside prediction probabilities.
-- Inspect 25-fold cross-validation metrics and feature importances under Tab 2.
+- Enter applicant financial details, loan terms, and annual interest rate.
+- View live **EMI ($/mo)**, **DTI (%)**, and **LTI (x)** ratio cards alongside prediction outcome and approval probability score.
 
 ### 2. Run Terminal Predictor (Pure Python)
 ```bash
