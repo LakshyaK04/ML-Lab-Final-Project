@@ -349,7 +349,7 @@ if submit_btn:
         st.markdown(f"""
         <div class="metric-badge" style="border-left-color: {dti_color};">
             <span class="metric-badge-title">DTI (Debt-to-Income):</span> 
-            <span style="font-size: 1.15rem; color: {dti_color}; font-weight: 700;">{dti_val:.1%}</span> — 
+            <span style="font-size: 1.15rem; color: {dti_color}; font-weight: 700;">{dti_val:.1%}</span>: 
             <span style="color: {dti_color}; font-weight: 600;">{dti_status}</span><br>
             <span class="metric-badge-sub">Proportion of household monthly income consumed by this loan installment.</span>
         </div>
@@ -361,7 +361,7 @@ if submit_btn:
         st.markdown(f"""
         <div class="metric-badge" style="border-left-color: {lti_color};">
             <span class="metric-badge-title">LTI (Loan-to-Annual-Income):</span> 
-            <span style="font-size: 1.15rem; color: {lti_color}; font-weight: 700;">{lti_val:.2f}x</span> — 
+            <span style="font-size: 1.15rem; color: {lti_color}; font-weight: 700;">{lti_val:.2f}x</span>: 
             <span style="color: {lti_color}; font-weight: 600;">{lti_status}</span><br>
             <span class="metric-badge-sub">Total loan size relative to annual household income (${total_income*12:,.0f}/yr).</span>
         </div>

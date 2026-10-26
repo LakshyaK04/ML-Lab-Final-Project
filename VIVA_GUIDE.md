@@ -1,4 +1,4 @@
-# 🎓 LOAN APPROVAL PREDICTOR — VIVA SURVIVAL GUIDE
+# 🎓 LOAN APPROVAL PREDICTOR - VIVA SURVIVAL GUIDE
 
 > **Tip for Viva:** Speak calmly, stick to the facts, and don't make unsubstantiated claims. Examiners appreciate when a student can clearly explain **why** they made design choices and acknowledge real-world **tradeoffs**.
 
@@ -10,7 +10,7 @@
 
 > *"Sir/Ma'am, my project is an automated **Loan Approval Prediction System** built on historical banking records. In credit underwriting, evaluating applications manually is slow, but naively trained models often make unrealistic decisions.*
 >
-> *Initially, a linear model placed almost all decision weight on past credit history and practically ignored income, causing it to approve absurd edge cases—like an applicant with zero income requesting a $500,000 loan simply because their credit flag was 1. To fix this, we implemented **Banking Feature Engineering** directly inside a Scikit-Learn pipeline to compute **Total Household Income**, **EMI**, **Debt-to-Income (DTI)**, and **Loan-to-Income (LTI)** ratios.*
+> *Initially, a linear model placed almost all decision weight on past credit history and practically ignored income, causing it to approve absurd edge cases, like an applicant with zero income requesting a $500,000 loan simply because their credit flag was 1. To fix this, we implemented **Banking Feature Engineering** directly inside a Scikit-Learn pipeline to compute **Total Household Income**, **EMI**, **Debt-to-Income (DTI)**, and **Loan-to-Income (LTI)** ratios.*
 >
 > *We evaluated our pipeline using **Repeated Stratified 5-Fold Cross-Validation (25 folds)** and selected **Random Forest** (300 trees, max depth 5). The overall accuracy remained around **80%** (Linear SVM ~80.9% ± 2.3% vs Random Forest with engineered features ~79.6% ± 2.1%), but the model behavior became economically sound: the old SVM ignored income, whereas the new model actively uses income and debt burden to check affordability. We deployed this into an interactive Streamlit application with live affordability metrics."*
 
@@ -114,7 +114,7 @@ The real motivation was not an artificial accuracy boost on historical data, but
 ### Q6: What are the primary limitations of this project?
 **Answer:**
 1. **Sample Size:** 614 rows is small for real-world production credit scoring.
-2. **Binary Credit Feature:** `Credit_History` is only a binary 0 or 1 flag instead of a continuous FICO / CIBIL score (300–850).
+2. **Binary Credit Feature:** `Credit_History` is only a binary 0 or 1 flag instead of a continuous FICO / CIBIL score (300 to 850).
 3. **External Obligations:** The dataset lacks external debt records (e.g. existing credit cards, car loans, or utility bills).
 4. **No True Negative representation in F1:** The positive class is ~69%, so high F1 does not reflect rejection specificity.
 
